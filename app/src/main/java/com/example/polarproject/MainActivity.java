@@ -13,6 +13,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import io.reactivex.rxjava3.annotations.NonNull;
+import io.reactivex.rxjava3.disposables.Disposable;
 
 import com.polar.sdk.api.PolarBleApi;
 import com.polar.sdk.api.PolarBleApiCallback;
@@ -28,6 +29,7 @@ import java.util.UUID;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "Polar Project";
+    private Disposable broadcastDisposable = null;
     private PolarBleApi api;
     // Defina o código da requisição de permissão
     private static final int PERMISSION_REQUEST_CODE = 100;  // Você pode usar qualquer valor único aqui
@@ -105,7 +107,35 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, "BATTERY LEVEL: " + level);
             }
         });
+
+        api.autoConnectToDevice(-50, null, null).subscribe();
+        printHR();
     }
+
+    public void printHR() {
+        if (broadcastDisposable == null || broadcastDisposable.isDisposed()) {
+//                    toggleButtonDown(broadcastButton, R.string.listening_broadcast);
+
+            broadcastDisposable = api.startListenForPolarHrBroadcasts(null)
+                    .subscribe(
+                            polarBroadcastData -> {
+                                Log.d(TAG, "HR BROADCAST " + polarBroadcastData.getPolarDeviceInfo().getDeviceId()
+                                        + " HR: " + polarBroadcastData.getHr()
+                                        + " batt: " + polarBroadcastData.getBatteryStatus());
+                            },
+                            error -> {
+//                                        toggleButtonUp(broadcastButton, R.string.listen_broadcast);
+                                Log.e(TAG, "Broadcast listener failed. Reason " + error);
+                            },
+                            () -> {
+                                Log.d(TAG, "complete");
+                            }
+                    );
+        } else {
+//                    toggleButtonUp(broadcastButton, R.string.listen_broadcast);
+            broadcastDisposable.dispose();
+        }
+    };
 
     @Override
     protected void onDestroy() {
