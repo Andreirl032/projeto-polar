@@ -1,5 +1,6 @@
 package com.example.polarproject;
 
+import android.annotation.SuppressLint;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Build;
@@ -15,12 +16,19 @@ import androidx.core.view.WindowInsetsCompat;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.disposables.Disposable;
 
+import com.polar.androidcommunications.api.ble.model.DisInfo;
 import com.polar.sdk.api.PolarBleApi;
 import com.polar.sdk.api.PolarBleApiCallback;
 import com.polar.sdk.api.PolarBleApiDefaultImpl;
 import com.polar.sdk.api.errors.PolarInvalidArgument;
 import com.polar.sdk.api.model.PolarDeviceInfo;
+import com.polar.sdk.api.model.PolarHealthThermometerData;
 import com.polar.sdk.api.model.PolarHrData;
+import com.polar.sdk.api.model.PolarSensorSetting;
+import com.polar.sdk.api.model.PolarTemperatureData;
+
+
+import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -33,7 +41,9 @@ public class MainActivity extends AppCompatActivity {
     private PolarBleApi api;
     // Defina o código da requisição de permissão
     private static final int PERMISSION_REQUEST_CODE = 100;  // Você pode usar qualquer valor único aqui
+    String deviceId = "";
 
+    @SuppressLint("CheckResult")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -65,6 +75,7 @@ public class MainActivity extends AppCompatActivity {
         features.add(PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_ONLINE_STREAMING);
         features.add(PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_DEVICE_TIME_SETUP);
         features.add(PolarBleApi.PolarBleSdkFeature.FEATURE_DEVICE_INFO);
+        features.add(PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_TEMPERATURE_DATA);
 
         // Inicializar o PolarBleApi com as funcionalidades desejadas
         api = PolarBleApiDefaultImpl.defaultImplementation(
@@ -72,6 +83,15 @@ public class MainActivity extends AppCompatActivity {
         );
 
         api.setApiCallback(new PolarBleApiCallback() {
+            @Override
+            public void htsNotificationReceived(@androidx.annotation.NonNull String s, @androidx.annotation.NonNull PolarHealthThermometerData polarHealthThermometerData) {
+
+            }
+
+            @Override
+            public void disInformationReceived(@androidx.annotation.NonNull String s, @androidx.annotation.NonNull DisInfo disInfo) {
+
+            }
 
             @Override
             public void blePowerStateChanged(boolean powered) {
@@ -81,6 +101,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void deviceConnected(PolarDeviceInfo polarDeviceInfo) {
                 Log.d(TAG, "CONNECTED: " + polarDeviceInfo.getDeviceId());
+                deviceId=polarDeviceInfo.getDeviceId();
             }
 
             @Override
@@ -109,7 +130,30 @@ public class MainActivity extends AppCompatActivity {
         });
 
         api.autoConnectToDevice(-50, null, null).subscribe();
+
+
+
+        printTemperature();
         printHR();
+    }
+
+
+    public void printTemperature(){
+        if (broadcastDisposable == null || broadcastDisposable.isDisposed()) {
+            Disposable requestSettings = api.requestStreamSettings(deviceId, PolarBleApi.PolarDeviceDataType.SKIN_TEMPERATURE).subscribe(settings -> {
+                        PolarSensorSetting sensorSetting = settings.maxSettings();
+                        broadcastDisposable = api.startSkinTemperatureStreaming(deviceId, sensorSetting)
+                                .subscribe(
+                                        data -> Log.w("Polar", "Temperatura da pele: " + data),
+                                        error -> Log.e("Polar", "Erro ao iniciar stream: " + error.getMessage())
+                                );
+                    },
+                    error -> {
+                        Log.e("Polar", "Dispositivo NÃO suporta SKIN_TEMPERATURE: " + error.getMessage());
+                    });
+        } else {
+            broadcastDisposable.dispose();
+        }
     }
 
     public void printHR() {

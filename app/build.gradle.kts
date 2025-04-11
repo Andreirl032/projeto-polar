@@ -40,7 +40,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
-    implementation ("com.github.polarofficial:polar-ble-sdk:5.1.0")
+    implementation ("com.github.polarofficial:polar-ble-sdk:5.17.0")
     implementation("io.reactivex.rxjava3:rxjava:3.1.6")
     implementation("io.reactivex.rxjava3:rxandroid:3.0.2")
 
