@@ -77,7 +77,6 @@ public class MainActivity extends AppCompatActivity {
         features.add(PolarBleApi.PolarBleSdkFeature.FEATURE_DEVICE_INFO);
         features.add(PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_TEMPERATURE_DATA);
 
-        // Inicializar o PolarBleApi com as funcionalidades desejadas
         api = PolarBleApiDefaultImpl.defaultImplementation(
                 getApplicationContext(),features
         );
@@ -158,8 +157,6 @@ public class MainActivity extends AppCompatActivity {
 
     public void printHR() {
         if (broadcastDisposable == null || broadcastDisposable.isDisposed()) {
-//                    toggleButtonDown(broadcastButton, R.string.listening_broadcast);
-
             broadcastDisposable = api.startListenForPolarHrBroadcasts(null)
                     .subscribe(
                             polarBroadcastData -> {
@@ -168,7 +165,6 @@ public class MainActivity extends AppCompatActivity {
                                         + " batt: " + polarBroadcastData.getBatteryStatus());
                             },
                             error -> {
-//                                        toggleButtonUp(broadcastButton, R.string.listen_broadcast);
                                 Log.e(TAG, "Broadcast listener failed. Reason " + error);
                             },
                             () -> {
@@ -176,7 +172,6 @@ public class MainActivity extends AppCompatActivity {
                             }
                     );
         } else {
-//                    toggleButtonUp(broadcastButton, R.string.listen_broadcast);
             broadcastDisposable.dispose();
         }
     };
@@ -191,7 +186,6 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        // Aqui você pode tratar a resposta das permissões.
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0) {
                 for (int i = 0; i < grantResults.length; i++) {
