@@ -27,7 +27,6 @@ import com.polar.sdk.api.model.PolarHrData;
 import com.polar.sdk.api.model.PolarSensorSetting;
 import com.polar.sdk.api.model.PolarTemperatureData;
 
-
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;
@@ -106,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void deviceConnecting(PolarDeviceInfo polarDeviceInfo) {
                 Log.d(TAG, "CONNECTING: " + polarDeviceInfo.getDeviceId());
-            }
+            } 
 
             @Override
             public void deviceDisconnected(PolarDeviceInfo polarDeviceInfo) {
