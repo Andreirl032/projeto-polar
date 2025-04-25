@@ -21,6 +21,7 @@ import com.polar.sdk.api.PolarBleApi;
 import com.polar.sdk.api.PolarBleApiCallback;
 import com.polar.sdk.api.PolarBleApiDefaultImpl;
 import com.polar.sdk.api.errors.PolarInvalidArgument;
+import com.polar.sdk.api.model.PolarAccelerometerData;
 import com.polar.sdk.api.model.PolarDeviceInfo;
 import com.polar.sdk.api.model.PolarHealthThermometerData;
 import com.polar.sdk.api.model.PolarHrData;
@@ -29,7 +30,9 @@ import com.polar.sdk.api.model.PolarTemperatureData;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -37,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "Polar Project";
     private Disposable broadcastDisposable = null;
+    private Disposable accDisposable = null;
     private PolarBleApi api;
     // Defina o código da requisição de permissão
     private static final int PERMISSION_REQUEST_CODE = 100;  // Você pode usar qualquer valor único aqui
@@ -131,8 +135,14 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-        printTemperature();
-        printHR();
+//        printTemperature();
+//        printHR();
+        printAcc();
+//        printPPI();
+
+
+
+
     }
 
 
@@ -164,12 +174,72 @@ public class MainActivity extends AppCompatActivity {
                                         + " batt: " + polarBroadcastData.getBatteryStatus());
                             },
                             error -> {
-                                Log.e(TAG, "Broadcast listener failed. Reason " + error);
+                                Log.e(TAG, "Broadcast hr listener failed. Reason " + error);
                             },
                             () -> {
-                                Log.d(TAG, "complete");
+                                Log.d(TAG, "hr complete");
                             }
                     );
+        } else {
+            broadcastDisposable.dispose();
+        }
+    };
+
+    public void printAcc() {
+        if (accDisposable == null || accDisposable.isDisposed()) {
+            accDisposable = api.requestStreamSettings(deviceId, PolarBleApi.PolarDeviceDataType.ACC)
+                    .flatMapPublisher(settings -> {
+                        // Mostra configurações disponíveis
+                        Log.d(TAG, "ACC available settings: " + settings.getSettings());
+
+                        // Você escolhe uma frequência suportada, por exemplo 100Hz
+                        Map<PolarSensorSetting.SettingType, Integer> desiredSettings = new HashMap<>();
+                        desiredSettings.put(PolarSensorSetting.SettingType.SAMPLE_RATE, 100);
+
+                        PolarSensorSetting sensorSetting = new PolarSensorSetting(desiredSettings);
+
+                        return api.startAccStreaming(deviceId, sensorSetting);
+                    })
+                    .subscribe(
+                            polarAccData -> {
+                                for (PolarAccelerometerData.PolarAccelerometerDataSample sample : polarAccData.getSamples()) {
+                                    float x = sample.getX();
+                                    float y = sample.getY();
+                                    float z = sample.getZ();
+                                    long timestamp = sample.getTimeStamp();
+                                    Log.d(TAG, "ACC - x: " + x + " y: " + y + " z: " + z + " timestamp: " + timestamp);
+                                }
+                            },
+                            error -> {
+                                Log.e(TAG, "ACC stream failed: " + error);
+                            }
+                    );
+        } else {
+            accDisposable.dispose();
+        }
+    }
+
+    public void printPPI() {
+        if (broadcastDisposable == null || broadcastDisposable.isDisposed()) {
+            Disposable requestSettings = api.requestStreamSettings(deviceId, PolarBleApi.PolarDeviceDataType.PPI).subscribe(settings -> {
+                        PolarSensorSetting sensorSetting = settings.maxSettings();
+                        broadcastDisposable = api.startPpiStreaming(deviceId)
+                                .subscribe(
+                                        polarBroadcastData -> {
+                                            Log.d(TAG, "PPI BROADCAST " + polarBroadcastData
+                                                    + "PPI: " + polarBroadcastData.getSamples());
+                                        },
+                                        error -> {
+                                            Log.e(TAG, "Broadcast ppi listener failed. Reason " + error);
+                                        },
+                                        () -> {
+                                            Log.d(TAG, "ppi complete");
+                                        }
+                                );
+                    },
+                    error -> {
+                        Log.e("Polar", "Dispositivo NÃO suporta PPI: " + error.getMessage());
+                    });
         } else {
             broadcastDisposable.dispose();
         }
