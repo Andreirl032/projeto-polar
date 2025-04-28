@@ -120,12 +120,17 @@ public class MainActivity extends AppCompatActivity {
             public void bleSdkFeatureReady(String identifier, PolarBleApi.PolarBleSdkFeature feature) {
                 Log.d(TAG, "Polar BLE SDK feature " + feature + " is ready");
 
+//                if (feature == PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_ONLINE_STREAMING) {
+//                    // ✅ Agora é seguro iniciar o streaming ACC
+//                    Log.v(TAG,deviceId);
+//                    if (identifier.equals(deviceId)) {
+//                        printAcc(deviceId);
+//                    }
+//                }
                 if (feature == PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_ONLINE_STREAMING) {
-                    // ✅ Agora é seguro iniciar o streaming ACC
-                    Log.v(TAG,deviceId);
-                    if (identifier.equals(deviceId)) {
-                        printAcc(deviceId);
-                    }
+                    Log.v(TAG, "ACC Streaming feature is ready! Identifier: "+identifier+" e deviceId: "+deviceId);
+                    // Agora é seguro iniciar ACC streaming
+                    printAcc(identifier);
                 }
             }
 
@@ -137,6 +142,7 @@ public class MainActivity extends AppCompatActivity {
             public void batteryLevelReceived(String identifier, int level) {
                 Log.d(TAG, "BATTERY LEVEL: " + level);
             }
+
         });
 
         api.autoConnectToDevice(-50, null, null).subscribe();
@@ -144,7 +150,7 @@ public class MainActivity extends AppCompatActivity {
 
 //        printTemperature();
 //        printHR();
-//        printAcc();
+//        printAcc(deviceId);
 //        printPPI();
 
 
@@ -191,21 +197,15 @@ public class MainActivity extends AppCompatActivity {
     };
 
     public void printAcc(String deviceId) {
-        Log.d(TAG, "printAcc() foi chamado com deviceId: " + deviceId);
         if (accDisposable == null || accDisposable.isDisposed()) {
+//            Log.v(TAG,"OIEEEEEE");
             accDisposable = api.requestStreamSettings(deviceId, PolarBleApi.PolarDeviceDataType.ACC)
                     .flatMapPublisher(settings -> {
-                        // Mostra configurações disponíveis
-                        Log.d(TAG, "ACC available settings: " + settings.getSettings());
+                        Log.v(TAG, "ACC available settings: " + settings.getSettings());
 
-                        // Escolhe a frequência suportada, por exemplo, 25Hz
-                        Map<PolarSensorSetting.SettingType, Integer> desiredSettings = new HashMap<>();
-                        desiredSettings.put(PolarSensorSetting.SettingType.SAMPLE_RATE, 25);
+                        PolarSensorSetting sensorSetting = settings.maxSettings(); // <- garantia de compatibilidade!
 
-                        PolarSensorSetting sensorSetting = new PolarSensorSetting(desiredSettings);
-
-                        // Inicia o streaming de acelerômetro após definir as configurações
-                        return api.startAccStreaming(deviceId, sensorSetting);  // Isso retorna um Flowable<PolarAccelerometerData>
+                        return api.startAccStreaming(deviceId, sensorSetting);
                     })
                     .subscribe(
                             polarAccData -> {
@@ -215,7 +215,7 @@ public class MainActivity extends AppCompatActivity {
                                     float y = sample.getY();
                                     float z = sample.getZ();
                                     long timestamp = sample.getTimeStamp();
-                                    Log.d(TAG, "ACC - x: " + x + " y: " + y + " z: " + z + " timestamp: " + timestamp);
+                                    Log.v(TAG, "ACC - x: " + x + " y: " + y + " z: " + z + " timestamp: " + timestamp);
                                 }
                             },
                             error -> {
@@ -226,10 +226,6 @@ public class MainActivity extends AppCompatActivity {
             accDisposable.dispose();
         }
     }
-
-
-
-
 
     public void printPPI() {
         if (broadcastDisposable == null || broadcastDisposable.isDisposed()) {
