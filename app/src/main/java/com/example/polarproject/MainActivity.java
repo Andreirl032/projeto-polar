@@ -14,6 +14,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import io.reactivex.rxjava3.annotations.NonNull;
+import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.disposables.Disposable;
 
 import com.polar.androidcommunications.api.ble.exceptions.BleControlPointCommandError;
@@ -34,6 +35,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -119,8 +121,8 @@ public class MainActivity extends AppCompatActivity {
 
                 if (feature == PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_ONLINE_STREAMING && identifier.equals(deviceId)) {
                     Log.v(TAG, "ACC Streaming feature is ready! Identifier: " + identifier + " e deviceId: " + deviceId);
-//                    printAcc(identifier);
                     printPpi(identifier);
+//                    printAcc(identifier);
 //                    printHR();
                 }
 
@@ -175,6 +177,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+
     public void printAcc(String deviceId) {
         if (accDisposable != null && !accDisposable.isDisposed()) {
             accDisposable.dispose();  // cancela qualquer stream anterior
@@ -182,21 +185,28 @@ public class MainActivity extends AppCompatActivity {
 
         Log.v(TAG, "Iniciando (ou reiniciando) stream de ACC...");
 
-        accDisposable = api.requestStreamSettings(deviceId, PolarBleApi.PolarDeviceDataType.ACC).timeout(5, TimeUnit.SECONDS).flatMapPublisher(settings -> {
-            Log.v(TAG, "ACC available settings: " + settings.getSettings());
-            PolarSensorSetting sensorSetting = settings.maxSettings();
-            return api.startAccStreaming(deviceId, sensorSetting);
-        }).subscribe(polarAccData -> {
-            for (PolarAccelerometerData.PolarAccelerometerDataSample sample : polarAccData.getSamples()) {
-                float x = sample.getX();
-                float y = sample.getY();
-                float z = sample.getZ();
-                long timestamp = sample.getTimeStamp();
-                Log.v(TAG, "ACC - x: " + x + " y: " + y + " z: " + z + " timestamp: " + timestamp);
-            }
-        }, error -> {
-            Log.e(TAG, "ACC stream failed: " + error);
-        });
+        accDisposable = api.requestStreamSettings(deviceId, PolarBleApi.PolarDeviceDataType.ACC).flatMapPublisher(settings -> {
+                    Log.v(TAG, "ACC available settings: " + settings.getSettings());
+                    PolarSensorSetting sensorSetting = settings.maxSettings();
+                    return api.startAccStreaming(deviceId, sensorSetting);
+                }).zipWith(Flowable.interval(1, TimeUnit.SECONDS), (polarAccData, aLong) -> polarAccData) // Intervalo de 1 segundo
+                .subscribe(polarAccData -> {
+//                    for (PolarAccelerometerData.PolarAccelerometerDataSample sample : polarAccData.getSamples()) {
+//                        float x = sample.getX();
+//                        float y = sample.getY();
+//                        float z = sample.getZ();
+//                        long timestamp = sample.getTimeStamp();
+//                        Log.v(TAG, "ACC - x: " + x + " y: " + y + " z: " + z + " timestamp: " + timestamp);
+//                    }
+                    PolarAccelerometerData.PolarAccelerometerDataSample sample = polarAccData.getSamples().get(0);
+                    float x = sample.getX();
+                    float y = sample.getY();
+                    float z = sample.getZ();
+                    long timestamp = sample.getTimeStamp();
+                    Log.v(TAG, "ACC - x: " + x + " y: " + y + " z: " + z + " timestamp: " + timestamp);
+                }, error -> {
+                    Log.e(TAG, "ACC stream failed: " + error);
+                });
 
     }
 
@@ -210,33 +220,28 @@ public class MainActivity extends AppCompatActivity {
         Log.v(TAG, "Iniciando stream de PPI...");
 
         // Inicia o stream de PPI
-        ppiDisposable = api.startPpiStreaming(deviceId)
-                .subscribe(
-                        ppiData -> {
-                            // Processa os dados de PPI recebidos
-                            for (PolarPpiData.PolarPpiSample sample : ppiData.getSamples()) {
-                                Log.v(TAG, "PPI - HR: " + sample.getHr()
-                                        + " PPI: " + sample.getPpi()
-                                        + " Error estimate: " + sample.getErrorEstimate()
-                                        + " Skin contact: " + sample.getSkinContactStatus()
-                                        + " Valid: " + sample.getSkinContactSupported());
-                            }
-                        },
-                        error -> {
-                            // Se o erro for "ERROR_ALREADY_IN_STATE", o dispositivo já está em medição
-                            if (error instanceof BleControlPointCommandError && error.getMessage() != null && error.getMessage().contains("ERROR_ALREADY_IN_STATE")) {
-                                Log.e(TAG, "Erro: O dispositivo já está em medição. Tente novamente mais tarde.");
-                            }
-                            // Se o dispositivo estiver no carregador
-                            else if (error instanceof BleControlPointCommandError && error.getMessage() != null && error.getMessage().contains("ERROR_DEVICE_IN_CHARGER")) {
-                                Log.e(TAG, "Erro: o dispositivo está no carregador. Remova-o para iniciar o stream.");
-                            }
-                            // Outros erros
-                            else {
-                                Log.e(TAG, "PPI stream failed: " + error);
-                            }
-                        }
-                );
+        ppiDisposable = api.startPpiStreaming(deviceId).subscribe(ppiData -> {
+            // Processa os dados de PPI recebidos
+//            for (PolarPpiData.PolarPpiSample sample : ppiData.getSamples()) {
+//                Log.v(TAG, "PPI - HR: " + sample.getHr() + " PPI: " + sample.getPpi() + " Error estimate: " + sample.getErrorEstimate() + " Skin contact: " + sample.getSkinContactStatus() + " Valid: " + sample.getSkinContactSupported());
+//            }
+            PolarPpiData.PolarPpiSample sample = ppiData.getSamples().get(0);
+            Log.v(TAG, "PPI - HR: " + sample.getHr() + " PPI: " + sample.getPpi() + " Error estimate: " + sample.getErrorEstimate() + " Skin contact: " + sample.getSkinContactStatus() + " Valid: " + sample.getSkinContactSupported());
+
+        }, error -> {
+            // Se o erro for "ERROR_ALREADY_IN_STATE", o dispositivo já está em medição
+            if (error instanceof BleControlPointCommandError && error.getMessage() != null && error.getMessage().contains("ERROR_ALREADY_IN_STATE")) {
+                Log.e(TAG, "Erro: O dispositivo já está em medição. Tente novamente mais tarde.");
+            }
+            // Se o dispositivo estiver no carregador
+            else if (error instanceof BleControlPointCommandError && error.getMessage() != null && error.getMessage().contains("ERROR_DEVICE_IN_CHARGER")) {
+                Log.e(TAG, "Erro: o dispositivo está no carregador. Remova-o para iniciar o stream.");
+            }
+            // Outros erros
+            else {
+                Log.e(TAG, "PPI stream failed: " + error);
+            }
+        });
     }
 
 
