@@ -43,9 +43,10 @@ import java.util.concurrent.TimeUnit;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "Polar Project";
-    private Disposable broadcastDisposable = null;
+    private Disposable hrDisposable = null;
     private Disposable accDisposable = null;
     private Disposable ppiDisposable = null;
+    private Disposable temperatureDisposable = null;
     private PolarBleApi api;
     // Defina o código da requisição de permissão
     private static final int PERMISSION_REQUEST_CODE = 100;  // Você pode usar qualquer valor único aqui
@@ -116,22 +117,11 @@ public class MainActivity extends AppCompatActivity {
             public void bleSdkFeatureReady(String identifier, PolarBleApi.PolarBleSdkFeature feature) {
                 Log.d(TAG, "Polar BLE SDK feature " + feature + " is ready");
 
-//                if (feature == PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_ONLINE_STREAMING) {
-//                    // ✅ Agora é seguro iniciar o streaming ACC
-//                    Log.v(TAG,deviceId);
-//                    if (identifier.equals(deviceId)) {
-//                        printAcc(deviceId);
-//                    }
-//                }
-                if (feature == PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_ONLINE_STREAMING && Objects.equals(deviceId, identifier)) {
+                if (feature == PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_ONLINE_STREAMING && identifier.equals(deviceId)) {
                     Log.v(TAG, "ACC Streaming feature is ready! Identifier: " + identifier + " e deviceId: " + deviceId);
 //                    printAcc(identifier);
                     printPpi(identifier);
-//                    api.getAvailableOnlineStreamDataTypes(deviceId)
-//                            .subscribe(
-//                                    set -> checkAndRunPPI(set),
-//                                    error -> Log.e(TAG, "Erro ao verificar streams: " + error)
-//                            );
+//                    printHR();
                 }
 
             }
@@ -144,7 +134,6 @@ public class MainActivity extends AppCompatActivity {
             public void batteryLevelReceived(String identifier, int level) {
                 Log.d(TAG, "BATTERY LEVEL: " + level);
             }
-
         });
 
         api.autoConnectToDevice(-50, null, null).subscribe();
@@ -160,21 +149,21 @@ public class MainActivity extends AppCompatActivity {
 
 
     public void printTemperature() {
-        if (broadcastDisposable == null || broadcastDisposable.isDisposed()) {
+        if (temperatureDisposable == null || temperatureDisposable.isDisposed()) {
             Disposable requestSettings = api.requestStreamSettings(deviceId, PolarBleApi.PolarDeviceDataType.SKIN_TEMPERATURE).subscribe(settings -> {
                 PolarSensorSetting sensorSetting = settings.maxSettings();
-                broadcastDisposable = api.startSkinTemperatureStreaming(deviceId, sensorSetting).subscribe(data -> Log.w("Polar", "Temperatura da pele: " + data), error -> Log.e("Polar", "Erro ao iniciar stream: " + error.getMessage()));
+                temperatureDisposable = api.startSkinTemperatureStreaming(deviceId, sensorSetting).subscribe(data -> Log.w("Polar", "Temperatura da pele: " + data), error -> Log.e("Polar", "Erro ao iniciar stream: " + error.getMessage()));
             }, error -> {
                 Log.e("Polar", "Dispositivo NÃO suporta SKIN_TEMPERATURE: " + error.getMessage());
             });
         } else {
-            broadcastDisposable.dispose();
+            temperatureDisposable.dispose();
         }
     }
 
     public void printHR() {
-        if (broadcastDisposable == null || broadcastDisposable.isDisposed()) {
-            broadcastDisposable = api.startListenForPolarHrBroadcasts(null).subscribe(polarBroadcastData -> {
+        if (hrDisposable == null || hrDisposable.isDisposed()) {
+            hrDisposable = api.startListenForPolarHrBroadcasts(null).subscribe(polarBroadcastData -> {
                 Log.d(TAG, "HR BROADCAST " + polarBroadcastData.getPolarDeviceInfo().getDeviceId() + " HR: " + polarBroadcastData.getHr() + " batt: " + polarBroadcastData.getBatteryStatus());
             }, error -> {
                 Log.e(TAG, "Broadcast hr listener failed. Reason " + error);
@@ -182,42 +171,9 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, "hr complete");
             });
         } else {
-            broadcastDisposable.dispose();
+            hrDisposable.dispose();
         }
     }
-
-    ;
-
-//    public void printAcc(String deviceId) {
-//        if (accDisposable == null || accDisposable.isDisposed()) {
-//            Log.v(TAG,"OIEEEEEE");
-//            accDisposable = api.requestStreamSettings(deviceId, PolarBleApi.PolarDeviceDataType.ACC)
-//                    .flatMapPublisher(settings -> {
-//                        Log.v(TAG, "ACC available settings: " + settings.getSettings());
-//
-//                        PolarSensorSetting sensorSetting = settings.maxSettings(); // <- garantia de compatibilidade!
-//
-//                        return api.startAccStreaming(deviceId, sensorSetting);
-//                    })
-//                    .subscribe(
-//                            polarAccData -> {
-//                                // Itera sobre as amostras de acelerômetro
-//                                for (PolarAccelerometerData.PolarAccelerometerDataSample sample : polarAccData.getSamples()) {
-//                                    float x = sample.getX();
-//                                    float y = sample.getY();
-//                                    float z = sample.getZ();
-//                                    long timestamp = sample.getTimeStamp();
-//                                    Log.v(TAG, "ACC - x: " + x + " y: " + y + " z: " + z + " timestamp: " + timestamp);
-//                                }
-//                            },
-//                            error -> {
-//                                Log.e(TAG, "ACC stream failed: " + error);
-//                            }
-//                    );
-//        } else {
-//            accDisposable.dispose();
-//        }
-//    }
 
     public void printAcc(String deviceId) {
         if (accDisposable != null && !accDisposable.isDisposed()) {
@@ -282,7 +238,6 @@ public class MainActivity extends AppCompatActivity {
                         }
                 );
     }
-
 
 
     @Override
