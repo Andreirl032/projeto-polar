@@ -122,7 +122,7 @@ public class MainActivity extends AppCompatActivity {
                 if (feature == PolarBleApi.PolarBleSdkFeature.FEATURE_POLAR_ONLINE_STREAMING && identifier.equals(deviceId)) {
                     Log.v(TAG, "ACC Streaming feature is ready! Identifier: " + identifier + " e deviceId: " + deviceId);
                     printPpi(identifier);
-//                    printAcc(identifier);
+                    printAcc(identifier);
 //                    printHR();
                 }
 
@@ -185,7 +185,7 @@ public class MainActivity extends AppCompatActivity {
 
         Log.v(TAG, "Iniciando (ou reiniciando) stream de ACC...");
 
-        accDisposable = api.requestStreamSettings(deviceId, PolarBleApi.PolarDeviceDataType.ACC).flatMapPublisher(settings -> {
+        accDisposable = api.requestStreamSettings(deviceId, PolarBleApi.PolarDeviceDataType.ACC).timeout(5, TimeUnit.SECONDS).flatMapPublisher(settings -> {
                     Log.v(TAG, "ACC available settings: " + settings.getSettings());
                     PolarSensorSetting sensorSetting = settings.maxSettings();
                     return api.startAccStreaming(deviceId, sensorSetting);
